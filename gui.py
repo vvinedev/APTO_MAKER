@@ -6,16 +6,17 @@ import customtkinter as ctk
 
 import core
 
-ESCALA = 1.0  # tamanho da interface: 1.0 = padrao, 2.0 = o dobro. Se ficar grande/pequeno demais, mexa so aqui.
+ESCALA = 1.5  # tamanho da interface: 1.0 = padrao, 2.0 = o dobro. Se ficar grande/pequeno demais, mexa so aqui.
 COR_SELECIONADA = ("#3B8ED0", "#1F6AA5")  # mesmo azul padrao do tema, para destacar a sequencia aberta
 COR_HOVER = ("gray75", "gray28")
 COR_DICA = ("gray40", "gray60")
 
 # (chave em core.MODOS, texto do botao)
 OPCOES_MODO = (
-    ("normal", "Normal (50x15 + 2× 40x10)"),
+    ("normal", "Normal (50x15 + 2×40x10)"),
     ("50x15", "Só 50x15"),
     ("40x10", "Só 40x10"),
+    ("90x25", "Só 90x25"),
 )
 
 TEXTO_ATALHOS = (
@@ -45,10 +46,10 @@ class App(ctk.CTk):
         super().__init__()
         self.title("APTO Maker")
         # tamanho base 960x600, mas nunca maior que a tela (ja contando a escala)
-        largura = min(960, int(self.winfo_screenwidth() * 0.92 / ESCALA))
+        largura = min(1000, int(self.winfo_screenwidth() * 0.92 / ESCALA))
         altura = min(600, int(self.winfo_screenheight() * 0.88 / ESCALA))
         self.geometry(f"{largura}x{altura}")
-        self.minsize(820, 440)  # menor que isso a linha dos 3 radios fica cortada
+        self.minsize(940, 440)  # menor que isso a linha dos 4 radios fica cortada
 
         # cada sequencia e um dict: nome, modo, caixa (textbox propria), linha, botao, excluir
         self.sequencias = []
@@ -99,7 +100,7 @@ class App(ctk.CTk):
         for valor, texto in OPCOES_MODO:
             ctk.CTkRadioButton(
                 modos, text=texto, variable=self.var_modo, value=valor, command=self._mudar_modo
-            ).pack(side="left", padx=(0, 16))
+            ).pack(side="left", padx=(0, 10))
 
         ctk.CTkLabel(painel, text="Placas (uma por linha):").grid(row=3, column=0, sticky="w")
         self.area_texto = ctk.CTkFrame(painel, fg_color="transparent")
@@ -113,7 +114,11 @@ class App(ctk.CTk):
         botoes = ctk.CTkFrame(painel, fg_color="transparent")
         botoes.grid(row=6, column=0, sticky="w", pady=10)
         ctk.CTkButton(botoes, text="Salvar como...", command=self.escolher_caminho).pack(side="left", padx=(0, 10))
-        ctk.CTkButton(botoes, text="Gerar DXF", command=self.gerar).pack(side="left")
+        ctk.CTkButton(botoes, text="Gerar DXF", command=self.gerar).pack(side="left", padx=(0, 10))
+        self.var_combinado = ctk.BooleanVar(value=True)
+        ctk.CTkCheckBox(
+            botoes, text="Faixa TODAS no topo", variable=self.var_combinado
+        ).pack(side="left")
 
         self.label_status = ctk.CTkLabel(painel, text="", justify="left")
         self.label_status.grid(row=7, column=0, sticky="w")
@@ -123,20 +128,6 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=11),
         )
         self.label_dicas.grid(row=8, column=0, sticky="w", pady=(8, 0))
-        # Código existente no final de _montar_janela:
-        self.label_dicas = ctk.CTkLabel(
-            painel, text=TEXTO_ATALHOS, text_color=COR_DICA, justify="left",
-            font=ctk.CTkFont(size=11),
-        )
-        self.label_dicas.grid(row=8, column=0, sticky="w", pady=(8, 0))
-
-        # NOVO CÓDIGO: Adicionar texto no canto inferior direito
-        self.label_versao = ctk.CTkLabel(
-            painel, text="APTO MAKER v1.0.0 - Vinicius F. Souto", text_color=COR_DICA, 
-            font=ctk.CTkFont(size=10)
-        )
-        self.label_versao.grid(row=9, column=0, sticky="e", pady=(0, 0))
-
 
     def _ajustar_quebra(self, evento):
         # a largura do evento e em pixels reais; o wraplength do label e na escala da interface
@@ -352,7 +343,7 @@ class App(ctk.CTk):
             return
 
         try:
-            r = core.gerar_dxf(sequencias, self.caminho_saida)
+            r = core.gerar_dxf(sequencias, self.caminho_saida, combinado=self.var_combinado.get())
         except Exception as e:
             self._status(f"Erro: {e}", "red")
             return
@@ -361,6 +352,8 @@ class App(ctk.CTk):
             f"OK: {r['sequencias']} sequência(s), {r['total']} placas, "
             f"{r['folhas']} folha(s) -> {r['caminho']}"
         )
+        if r["folhas_combinadas"]:
+            msg += f"\nFaixa TODAS no topo: {r['folhas_combinadas']} folha(s)"
         if r["puladas"]:
             msg += f"\nSem texto, ficaram de fora: {', '.join(r['puladas'])}"
         self._status(msg, "green")
